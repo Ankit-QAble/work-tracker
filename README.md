@@ -17,6 +17,11 @@ no networking. All data lives on disk under
   as idle (separately configurable threshold from auto-pause)
 - A 0–100 per-minute "activity score" from a `CGEventTap` — counts input events
   only, never key content
+- Meeting time tracking (currently Microsoft Teams): logs how long a call runs,
+  independently of whatever app is frontmost — so a Teams call keeps counting
+  while you're actively working in Chrome on a second monitor, for example.
+  Best-effort (see "How meeting detection works" below for the exact heuristic
+  and its known limitation)
 - Optional periodic screenshots (off by default) via ScreenCaptureKit
 - A SwiftUI dashboard: timeline, time-per-app/domain breakdown, activity score
   chart, screenshot strip
@@ -107,7 +112,7 @@ The app needs, and gracefully degrades without, four permissions:
 
 | Permission | Used for |
 |---|---|
-| Accessibility | Window titles for non-browser apps |
+| Accessibility | Window titles for non-browser apps; meeting detection |
 | Automation (Google Chrome) | Browser tab URL/title |
 | Input Monitoring | The per-minute activity score |
 | Screen Recording | Optional periodic screenshots |
@@ -115,6 +120,39 @@ The app needs, and gracefully degrades without, four permissions:
 Grant these in **System Settings → Privacy & Security**. If a feature isn't
 tracking, check there first (Settings → Permissions tab in the app links
 straight to it).
+
+## How meeting detection works
+
+There's no public, local API for "is this app currently in a call" — Teams
+doesn't expose one to third-party tools. [MeetingDetector.swift](Sources/ActivityTracker/Tracking/MeetingDetector.swift)
+uses a structural heuristic instead, derived from watching real Teams windows
+across three states via the Accessibility API:
+
+| State | Teams windows | Observed title |
+|---|---|---|
+| Not in a meeting | 1 | `"Chat \| ..."` |
+| Scheduled channel meeting, live | 2 | one titled `"Meeting in <channel>..."` |
+| Ad-hoc 1:1 call from a chat, live | 2 | one titled just the other person's name |
+
+The exact wording varies a lot (no consistent "Meeting" keyword across meeting
+types), but structurally, every meeting state opens a **second window**
+distinct from the normal single "Chat | ..." browsing window. So the rule is:
+*Teams has 2+ windows, and at least one of them isn't titled like a normal
+"Chat | ..." view* → treat it as an active meeting, and log a `meeting_sessions`
+row (a separate table from `app_intervals`, specifically because a meeting is
+allowed to overlap with whatever app is actively being tracked — that's the
+whole point).
+
+**Known false-positive risk**: Teams lets you pop a chat out into its own
+window without being in a call, which would also produce 2+ windows and could
+be mistaken for a meeting. Hasn't been observed in practice yet, but worth
+watching for. If it turns out to be a real problem, the fix is to also require
+a positive signal (e.g. a window title containing "Meeting"), at the cost of
+missing meeting types that don't happen to include that word.
+
+Polls every 10 seconds, independent of whether Teams is frontmost. If this
+misfires for you, it's a one-file heuristic to tune —
+`MeetingDetector.looksLikeMeeting(windowTitles:)`.
 
 ## A note on code signing & TCC permissions
 

@@ -10,6 +10,7 @@ struct DashboardView: View {
     @State private var domainSummary: [DomainTimeSummary] = []
     @State private var activityScores: [ActivityScore] = []
     @State private var screenshots: [Screenshot] = []
+    @State private var meetingSessions: [MeetingSession] = []
     @ObservedObject private var settings = AppSettings.shared
 
     private let store = ActivityStore.shared
@@ -28,8 +29,8 @@ struct DashboardView: View {
 
                     VStack(alignment: .leading, spacing: 8) {
                         SectionHeader(title: "Timeline", systemImage: "chart.bar.doc.horizontal")
-                        TimelineBarView(intervals: intervals, day: selectedDay)
-                            .frame(height: 64)
+                        TimelineBarView(intervals: intervals, meetingSessions: meetingSessions, day: selectedDay)
+                            .frame(height: meetingSessions.isEmpty ? 64 : 78)
                             .card()
                     }
 
@@ -171,6 +172,29 @@ struct DashboardView: View {
                 systemImage: "gauge.with.dots.needle.67percent",
                 tint: .green
             )
+            if !meetingSessions.isEmpty {
+                StatTile(
+                    title: "Meeting Time",
+                    value: formatDuration(meetingSeconds),
+                    systemImage: "video.fill",
+                    tint: .pink
+                )
+            }
+        }
+    }
+
+    /// Meeting time is tracked separately from — and can overlap with — Tracked
+    /// Time, since a call can run in the background while you're focused on a
+    /// different app (see MeetingDetector). It deliberately isn't subtracted from
+    /// or added into Tracked Time; the two answer different questions.
+    private var meetingSeconds: TimeInterval {
+        let cal = Calendar.current
+        let start = cal.startOfDay(for: selectedDay)
+        let end = cal.date(byAdding: .day, value: 1, to: start)!
+        return meetingSessions.reduce(0) { total, session in
+            let clampedStart = max(session.startTime, start)
+            let clampedEnd = min(session.endTime ?? Date(), end)
+            return total + max(0, clampedEnd.timeIntervalSince(clampedStart))
         }
     }
 
@@ -212,6 +236,7 @@ struct DashboardView: View {
         domainSummary = store.domainTimeSummary(on: selectedDay)
         activityScores = store.activityScores(on: selectedDay)
         screenshots = store.screenshots(on: selectedDay)
+        meetingSessions = store.meetingSessions(on: selectedDay)
     }
 }
 

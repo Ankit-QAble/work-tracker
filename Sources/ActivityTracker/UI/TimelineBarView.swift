@@ -3,9 +3,12 @@ import SwiftUI
 /// A single horizontal bar spanning the selected day (00:00-24:00), broken into
 /// colored segments per app interval, with hour gridlines/labels and a marker for
 /// the current time when viewing today. Idle and paused gaps render in gray
-/// (distinguishable shades — see `colorFor`).
+/// (distinguishable shades — see `colorFor`). Meeting sessions render as a thin
+/// separate strip above the main bar, since they can overlap with it (a meeting
+/// can run while a different app is the one actually being tracked below).
 struct TimelineBarView: View {
     let intervals: [AppInterval]
+    var meetingSessions: [MeetingSession] = []
     let day: Date
 
     private var dayBounds: (Date, Date) {
@@ -20,8 +23,29 @@ struct TimelineBarView: View {
             let (dayStart, dayEnd) = dayBounds
             let totalSeconds = dayEnd.timeIntervalSince(dayStart)
             let barHeight: CGFloat = 34
+            let meetingBarHeight: CGFloat = 10
 
             VStack(alignment: .leading, spacing: 4) {
+                if !meetingSessions.isEmpty {
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 3).fill(Color.gray.opacity(0.08))
+                        ForEach(Array(meetingSessions.enumerated()), id: \.offset) { _, session in
+                            let clampedStart = max(session.startTime, dayStart)
+                            let clampedEnd = min(session.endTime ?? Date(), dayEnd)
+                            let width = max(0, clampedEnd.timeIntervalSince(clampedStart) / totalSeconds) * geo.size.width
+                            let x = (clampedStart.timeIntervalSince(dayStart) / totalSeconds) * geo.size.width
+
+                            Rectangle()
+                                .fill(Color.pink.opacity(0.75))
+                                .frame(width: max(1, width))
+                                .position(x: x + width / 2, y: meetingBarHeight / 2)
+                                .help("\(session.appName) meeting")
+                        }
+                    }
+                    .frame(height: meetingBarHeight)
+                    .clipShape(RoundedRectangle(cornerRadius: 3))
+                }
+
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: DS.radiusSmall).fill(Color.gray.opacity(0.12))
 

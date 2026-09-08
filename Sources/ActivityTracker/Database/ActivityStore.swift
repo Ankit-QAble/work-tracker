@@ -235,4 +235,81 @@ final class ActivityStore {
                 .fetchAll(db)
         }) ?? []
     }
+
+    // MARK: - Meeting sessions
+
+    /// Starts a new meeting session unless one is already open for this app —
+    /// MeetingDetector polls periodically, so this must be idempotent while a
+    /// meeting is ongoing rather than opening a fresh row every poll.
+    @discardableResult
+    func startMeetingSessionIfNeeded(appName: String, at date: Date = Date()) -> Int64? {
+        do {
+            return try db.write { db in
+                if let open = try MeetingSession
+                    .filter(MeetingSession.Columns.appName == appName)
+                    .filter(MeetingSession.Columns.endTime == nil)
+                    .fetchOne(db) {
+                    return open.id
+                }
+                var session = MeetingSession(id: nil, appName: appName, startTime: date, endTime: nil)
+                try session.insert(db)
+                return session.id
+            }
+        } catch {
+            Log.error("startMeetingSessionIfNeeded failed: \(error)")
+            return nil
+        }
+    }
+
+    /// Closes any still-open meeting session(s) regardless of app — used on app
+    /// quit so a meeting in progress when you close the tracker doesn't leave a
+    /// permanently-open row (which would otherwise show as an ever-growing
+    /// duration whenever the dashboard is next opened).
+    func closeAllOpenMeetingSessions(at date: Date = Date()) {
+        do {
+            try db.write { db in
+                try db.execute(
+                    sql: "UPDATE meeting_sessions SET end_time = ? WHERE end_time IS NULL",
+                    arguments: [date]
+                )
+            }
+        } catch {
+            Log.error("closeAllOpenMeetingSessions failed: \(error)")
+        }
+    }
+
+    func endOpenMeetingSession(appName: String, at date: Date = Date()) {
+        do {
+            try db.write { db in
+                try db.execute(
+                    sql: "UPDATE meeting_sessions SET end_time = ? WHERE app_name = ? AND end_time IS NULL",
+                    arguments: [date, appName]
+                )
+            }
+        } catch {
+            Log.error("endOpenMeetingSession failed: \(error)")
+        }
+    }
+
+    func meetingSessions(on day: Date, calendar: Calendar = .current) -> [MeetingSession] {
+        let (start, end) = dayBounds(day, calendar: calendar)
+        return (try? db.read { db in
+            try MeetingSession
+                .filter(MeetingSession.Columns.startTime < end)
+                .filter(MeetingSession.Columns.endTime == nil || MeetingSession.Columns.endTime > start)
+                .order(MeetingSession.Columns.startTime.asc)
+                .fetchAll(db)
+        }) ?? []
+    }
+
+    /// General-purpose version for CSV export's week/month ranges.
+    func meetingSessions(from start: Date, to end: Date) -> [MeetingSession] {
+        (try? db.read { db in
+            try MeetingSession
+                .filter(MeetingSession.Columns.startTime < end)
+                .filter(MeetingSession.Columns.endTime == nil || MeetingSession.Columns.endTime > start)
+                .order(MeetingSession.Columns.startTime.asc)
+                .fetchAll(db)
+        }) ?? []
+    }
 }

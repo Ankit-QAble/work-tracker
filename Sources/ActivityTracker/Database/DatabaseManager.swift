@@ -68,6 +68,21 @@ final class DatabaseManager {
             try db.create(index: "idx_screenshots_timestamp", on: "screenshots", columns: ["timestamp"])
         }
 
+        migrator.registerMigration("v2_meeting_sessions") { db in
+            // Deliberately separate from app_intervals: a meeting can legitimately
+            // overlap with whatever app is frontmost (e.g. Teams call running while
+            // you're actively working in Chrome on a second monitor), whereas
+            // app_intervals models a single sequential "what's frontmost right now"
+            // timeline that can't represent overlap.
+            try db.create(table: "meeting_sessions") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("app_name", .text).notNull()
+                t.column("start_time", .datetime).notNull()
+                t.column("end_time", .datetime)
+            }
+            try db.create(index: "idx_meeting_sessions_start", on: "meeting_sessions", columns: ["start_time"])
+        }
+
         return migrator
     }
 }

@@ -25,6 +25,7 @@ final class TrackingCoordinator: ObservableObject {
     private var windowTitleTracker: WindowTitleTracker!
     private var activityScoreTracker: ActivityScoreTracker!
     private var screenshotManager: ScreenshotManager!
+    private var meetingDetector: MeetingDetector!
 
     /// Row id of whatever app_intervals row is currently open. Shared with the
     /// activity-score and screenshot trackers so their rows can reference it.
@@ -61,6 +62,7 @@ final class TrackingCoordinator: ObservableObject {
             self?.screenshotManager.noteLatestScore(score)
         }
         screenshotManager = ScreenshotManager(intervalIdProvider: { [weak self] in self?.currentIntervalId })
+        meetingDetector = MeetingDetector()
     }
 
     func start() {
@@ -68,6 +70,7 @@ final class TrackingCoordinator: ObservableObject {
         if let app = NSWorkspace.shared.frontmostApplication {
             handleAppActivated(app)
         }
+        meetingDetector.start() // independent of frontmost-app tracking — can run alongside anything
         appSwitchObserver.start()
         idleMonitor.start()
         activityScoreTracker.start()
@@ -177,5 +180,7 @@ final class TrackingCoordinator: ObservableObject {
 
     func shutdown() {
         store.closeCurrentInterval()
+        meetingDetector.stop()
+        store.closeAllOpenMeetingSessions()
     }
 }

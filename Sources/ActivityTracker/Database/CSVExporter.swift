@@ -72,6 +72,30 @@ enum CSVExporter {
             lines.append(fields.map(csvEscape).joined(separator: ","))
         }
 
+        // Meeting sessions are logged separately (see MeetingDetector) precisely
+        // because they can overlap with app_intervals — e.g. a Teams call running
+        // while Chrome is the focused/tracked app. Rows here will legitimately
+        // overlap in time with rows above; that's intentional, not a duplicate.
+        let meetings = ActivityStore.shared.meetingSessions(from: start, to: end)
+        for meeting in meetings {
+            let clampedStart = max(meeting.startTime, start)
+            let clampedEnd = min(meeting.endTime ?? Date(), end)
+            guard clampedEnd > clampedStart else { continue }
+
+            let durationMinutes = Int((clampedEnd.timeIntervalSince(clampedStart) / 60).rounded())
+            let fields = [
+                dateFormatter.string(from: clampedStart),
+                timeFormatter.string(from: clampedStart),
+                timeFormatter.string(from: clampedEnd),
+                String(durationMinutes),
+                meeting.appName,
+                "", "", "",
+                "Meeting",
+                ""
+            ]
+            lines.append(fields.map(csvEscape).joined(separator: ","))
+        }
+
         return lines.joined(separator: "\r\n")
     }
 

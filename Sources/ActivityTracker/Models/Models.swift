@@ -87,6 +87,35 @@ struct Screenshot: Codable, FetchableRecord, MutablePersistableRecord, Identifia
     }
 }
 
+/// A meeting session (e.g. a Teams call), tracked independently of — and able to
+/// overlap with — whatever app is frontmost. See MeetingDetector.
+struct MeetingSession: Codable, FetchableRecord, MutablePersistableRecord, Identifiable {
+    static let databaseTableName = "meeting_sessions"
+
+    var id: Int64?
+    var appName: String
+    var startTime: Date
+    var endTime: Date?
+
+    enum Columns {
+        static let id = Column("id")
+        static let appName = Column("app_name")
+        static let startTime = Column("start_time")
+        static let endTime = Column("end_time")
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case appName = "app_name"
+        case startTime = "start_time"
+        case endTime = "end_time"
+    }
+
+    mutating func didInsert(_ inserted: InsertionSuccess) {
+        id = inserted.rowID
+    }
+}
+
 /// Aggregated time-per-app, used by the dashboard.
 struct AppTimeSummary: Identifiable {
     var id: String { appName }

@@ -54,6 +54,11 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         quitItem.target = self
         menu.addItem(quitItem)
 
+        menu.addItem(.separator())
+        let creditItem = NSMenuItem(title: "Developed by QAble", action: nil, keyEquivalent: "")
+        creditItem.isEnabled = false
+        menu.addItem(creditItem)
+
         statusItem.menu = menu
 
         TrackingCoordinator.shared.$status
@@ -80,11 +85,11 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         summaryItem.title = "Today: \(formatDuration(seconds)) tracked"
     }
 
-    /// A colored dot + "AT" label. Deliberately NOT a template NSImage: a custom
+    /// A single colored dot. Deliberately NOT a template NSImage: a custom
     /// composited icon risks rendering invisibly against the menu bar in one of the
     /// two appearance modes without a way to visually verify it here, whereas a
     /// colored attributed title always renders in its true color regardless of menu
-    /// bar tint, and the text color still adapts to light/dark via `.labelColor`.
+    /// bar tint.
     private func updateIcon(for status: TrackingStatus) {
         let color: NSColor
         switch status {
@@ -94,14 +99,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         }
         guard let button = statusItem.button else { return }
 
-        let attributed = NSMutableAttributedString(
-            string: "● ",
-            attributes: [.foregroundColor: color, .font: NSFont.systemFont(ofSize: 13, weight: .bold)]
+        let attributed = NSAttributedString(
+            string: "●",
+            attributes: [.foregroundColor: color, .font: NSFont.systemFont(ofSize: 15, weight: .bold)]
         )
-        attributed.append(NSAttributedString(
-            string: "AT",
-            attributes: [.foregroundColor: NSColor.labelColor, .font: NSFont.systemFont(ofSize: 12, weight: .semibold)]
-        ))
         button.image = nil
         button.attributedTitle = attributed
         button.toolTip = "ActivityTracker — \(status.rawValue)"

@@ -35,6 +35,36 @@ shopt -u nullglob
 
 SIGNING_IDENTITY="ActivityTrackerLocalSigning"
 BUNDLE_ID="com.ankit.activitytracker"
+
+# First time on a given Mac: create a local, self-signed code-signing certificate
+# so permission grants (Accessibility/Input Monitoring/Automation) survive
+# rebuilds — see README.md "A note on code signing & TCC permissions" for why
+# this is needed at all. One-time, silent, and scoped to this user's own login
+# keychain; never touches the system keychain or requires sudo.
+if ! security find-identity -v -p codesigning | grep -q "$SIGNING_IDENTITY"; then
+  echo "==> No local signing identity found — creating one (one-time setup)"
+  TMP_CERT_DIR="$(mktemp -d)"
+  trap 'rm -rf "$TMP_CERT_DIR"' EXIT
+
+  openssl req -x509 -newkey rsa:2048 \
+    -keyout "$TMP_CERT_DIR/key.pem" -out "$TMP_CERT_DIR/cert.pem" \
+    -days 3650 -nodes -subj "/CN=$SIGNING_IDENTITY" \
+    -addext "keyUsage=critical,digitalSignature" \
+    -addext "extendedKeyUsage=critical,codeSigning" \
+    -addext "basicConstraints=critical,CA:false" 2>/dev/null
+
+  openssl pkcs12 -export -out "$TMP_CERT_DIR/cert.p12" \
+    -inkey "$TMP_CERT_DIR/key.pem" -in "$TMP_CERT_DIR/cert.pem" \
+    -passout pass:temp -name "$SIGNING_IDENTITY"
+
+  security import "$TMP_CERT_DIR/cert.p12" -k "$HOME/Library/Keychains/login.keychain-db" \
+    -P temp -A -T /usr/bin/codesign -T /usr/bin/security >/dev/null
+  security add-trusted-cert -d -r trustRoot -p codeSign \
+    -k "$HOME/Library/Keychains/login.keychain-db" "$TMP_CERT_DIR/cert.pem"
+
+  echo "    Created and trusted '$SIGNING_IDENTITY' in your login keychain."
+fi
+
 IDENTITY_HASH="$(security find-identity -v -p codesigning | grep "$SIGNING_IDENTITY" | awk '{print $2}')"
 
 if [ -n "$IDENTITY_HASH" ]; then

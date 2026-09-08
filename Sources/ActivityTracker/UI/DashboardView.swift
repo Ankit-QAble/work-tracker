@@ -69,6 +69,9 @@ struct DashboardView: View {
         .frame(minWidth: 940, minHeight: 700)
         .onAppear { reload() }
         .onChange(of: selectedDay) { _, _ in reload() }
+        .onReceive(NotificationCenter.default.publisher(for: .dashboardShouldRefresh)) { _ in
+            reload()
+        }
     }
 
     private var header: some View {
@@ -231,6 +234,7 @@ struct DashboardView: View {
     }
 
     private func reload() {
+        Log.info("Dashboard reload (day: \(selectedDay.formatted(date: .abbreviated, time: .omitted)))")
         intervals = store.intervals(on: selectedDay)
         appSummary = store.appTimeSummary(on: selectedDay)
         domainSummary = store.domainTimeSummary(on: selectedDay)

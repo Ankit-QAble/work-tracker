@@ -2,10 +2,20 @@ import AppKit
 import SwiftUI
 import Combine
 
+extension Notification.Name {
+    /// Posted when the Dashboard should reload its data — on refocus, and on the
+    /// shared periodic timer while the window is visible. DashboardView doesn't
+    /// own a timer itself: since its NSWindow is reused (never destroyed) after
+    /// first opened, SwiftUI's onAppear/onDisappear won't fire again on
+    /// hide/show, so scheduling lives here in MenuBarController instead, which
+    /// already knows the window's visibility.
+    static let dashboardShouldRefresh = Notification.Name("dashboardShouldRefresh")
+}
+
 /// Owns the NSStatusItem, its dropdown menu, and the (lazily created) Dashboard /
 /// Settings windows. This is the only AppKit chrome the app has — everything else
 /// is SwiftUI hosted inside plain NSWindows.
-final class MenuBarController: NSObject, NSMenuDelegate {
+final class MenuBarController: NSObject, NSMenuDelegate, NSWindowDelegate {
     private var statusItem: NSStatusItem!
     private var cancellables = Set<AnyCancellable>()
     private var summaryRefreshTimer: Timer?
@@ -77,12 +87,24 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         refreshSummary()
         summaryRefreshTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             self?.refreshSummary()
+            // Only nudge the Dashboard to reload while it's actually visible —
+            // no point re-querying the DB for a window nobody's looking at.
+            if self?.dashboardWindow?.isVisible == true {
+                NotificationCenter.default.post(name: .dashboardShouldRefresh, object: nil)
+            }
         }
     }
 
     private func refreshSummary() {
         let seconds = ActivityStore.shared.appTimeSummary(on: Date()).reduce(0) { $0 + $1.totalSeconds }
         summaryItem.title = "Today: \(formatDuration(seconds)) tracked"
+    }
+
+    /// Refresh immediately on refocus — so reopening the Dashboard (or clicking
+    /// back into it) never shows stale data while waiting for the next periodic tick.
+    func windowDidBecomeKey(_ notification: Notification) {
+        guard (notification.object as? NSWindow) === dashboardWindow else { return }
+        NotificationCenter.default.post(name: .dashboardShouldRefresh, object: nil)
     }
 
     /// A single colored dot. Deliberately NOT a template NSImage: a custom
@@ -123,6 +145,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             window.title = "Activity Dashboard"
             window.titlebarAppearsTransparent = true
             window.isReleasedWhenClosed = false
+            window.delegate = self
             window.contentView = NSHostingView(rootView: DashboardView())
             window.center()
             dashboardWindow = window

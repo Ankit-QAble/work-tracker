@@ -32,6 +32,13 @@ final class TrackingCoordinator: ObservableObject {
 
     private var isManuallyPaused = false
 
+    /// State captured at the moment tracking goes idle, so that on resume we can
+    /// offer to reattribute the idle stretch back to whatever was active before —
+    /// see `handleIdleChanged` and the idle-resume prompt.
+    private var idleStartDate: Date?
+    private var idleIntervalId: Int64?
+    private var appNameBeforeIdle: String?
+
     private init() {
         appSwitchObserver = AppSwitchObserver { [weak self] app in
             self?.handleAppActivated(app)
@@ -123,11 +130,32 @@ final class TrackingCoordinator: ObservableObject {
             status = .idle
             browserTracker.stop()
             windowTitleTracker.stop()
+            // Only worth remembering if there was a real, trackable app before this —
+            // not the "—" placeholder (no app seen yet) or an excluded app.
+            appNameBeforeIdle = (currentAppName != "—" && currentIntervalId != nil) ? currentAppName : nil
+            idleStartDate = Date()
             currentIntervalId = store.startInterval(appName: "Idle", windowTitle: nil, url: nil, domain: nil, isIdle: true)
+            idleIntervalId = currentIntervalId
         } else {
+            let idleDuration = idleStartDate.map { Date().timeIntervalSince($0) } ?? 0
+            let intervalToReattribute = idleIntervalId
+            let previousApp = appNameBeforeIdle
+            idleStartDate = nil
+            idleIntervalId = nil
+            appNameBeforeIdle = nil
+
             status = .tracking
             if let app = NSWorkspace.shared.frontmostApplication {
                 handleAppActivated(app)
+            }
+
+            if settings.idlePromptEnabled,
+               idleDuration >= settings.idlePromptThresholdSeconds,
+               let intervalToReattribute, let previousApp {
+                IdleResumePromptController.shared.show(idleDuration: idleDuration, previousAppName: previousApp) { [weak self] in
+                    Log.info("Idle stretch (\(Int(idleDuration))s) reattributed to \(previousApp)")
+                    self?.store.reattributeAsTracked(intervalId: intervalToReattribute, appName: previousApp)
+                }
             }
         }
     }

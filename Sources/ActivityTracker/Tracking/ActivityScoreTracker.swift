@@ -79,24 +79,7 @@ final class ActivityScoreTracker {
         CGEvent.tapEnable(tap: tap, enable: true)
 
         startMinuteTimer()
-        startDiagTimer()
         Log.info("ActivityScoreTracker started")
-    }
-
-    private var diagTimer: DispatchSourceTimer?
-
-    /// Short-interval diagnostic separate from the once-a-minute score row — lets us
-    /// confirm the tap is actually receiving events in near-real-time while debugging,
-    /// without waiting for a full minute boundary.
-    private func startDiagTimer() {
-        let t = DispatchSource.makeTimerSource(queue: .main)
-        t.schedule(deadline: .now() + 5, repeating: 5)
-        t.setEventHandler { [weak self] in
-            guard let self else { return }
-            Log.info("eventTap diag: runningEventCountThisMinute=\(self.eventCount)")
-        }
-        t.resume()
-        diagTimer = t
     }
 
     func stop() {
@@ -110,8 +93,6 @@ final class ActivityScoreTracker {
         runLoopSource = nil
         minuteTimer?.cancel()
         minuteTimer = nil
-        diagTimer?.cancel()
-        diagTimer = nil
     }
 
     private func startMinuteTimer() {

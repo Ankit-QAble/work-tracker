@@ -50,8 +50,6 @@ final class IdleMonitor {
         timer = nil
     }
 
-    private var tickCount = 0
-
     private func tick() {
         let cgEventSourceIdle = CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: .null)
         var idleSeconds = cgEventSourceIdle
@@ -60,11 +58,6 @@ final class IdleMonitor {
         }
         let threshold = thresholdProvider()
         let nowIdle = idleSeconds >= threshold
-
-        tickCount += 1
-        if tickCount % 5 == 0 {
-            Log.info("idle diag: axTrusted=\(AXIsProcessTrusted()) cgEventSource=\(String(format: "%.1f", cgEventSourceIdle)) effective=\(String(format: "%.1f", idleSeconds)) threshold=\(Int(threshold))")
-        }
 
         if nowIdle != isIdle {
             isIdle = nowIdle

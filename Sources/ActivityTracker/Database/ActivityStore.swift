@@ -77,6 +77,22 @@ final class ActivityStore {
         }
     }
 
+    /// Reattributes a previously-idle interval to a real app as tracked time — used
+    /// when the user, on returning from being away, says "actually count that as
+    /// work" in the idle-resume prompt.
+    func reattributeAsTracked(intervalId: Int64, appName: String) {
+        do {
+            try db.write { db in
+                guard var interval = try AppInterval.fetchOne(db, key: intervalId) else { return }
+                interval.isIdle = false
+                interval.appName = appName
+                try interval.update(db)
+            }
+        } catch {
+            Log.error("reattributeAsTracked failed: \(error)")
+        }
+    }
+
     func currentOpenInterval() -> AppInterval? {
         try? db.read { db in
             try AppInterval

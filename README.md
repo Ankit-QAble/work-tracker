@@ -12,6 +12,9 @@ no networking. All data lives on disk under
 - Window-title polling for any other app via the Accessibility API
 - Idle detection (auto-pauses tracking after a configurable threshold, logs the
   idle gap as its own interval type)
+- Idle-resume prompt: coming back from a long idle stretch pops up a small,
+  auto-dismissing panel asking whether to count that time as work or leave it
+  as idle (separately configurable threshold from auto-pause)
 - A 0–100 per-minute "activity score" from a `CGEventTap` — counts input events
   only, never key content
 - Optional periodic screenshots (off by default) via ScreenCaptureKit

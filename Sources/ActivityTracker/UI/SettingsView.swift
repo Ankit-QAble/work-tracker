@@ -68,6 +68,24 @@ private struct GeneralSettingsPane: View {
                 }
             }
             .card()
+
+            SectionHeader(title: "Idle Resume Prompt", systemImage: "arrow.uturn.backward.circle")
+            VStack(alignment: .leading, spacing: 10) {
+                Toggle("Ask when I return from a long idle stretch", isOn: $settings.idlePromptEnabled)
+                    .toggleStyle(.switch)
+                Text("If you've been idle longer than this, a small popup asks whether to count that time as work (attributed to whatever app you were in before) or leave it as idle. Ignoring it defaults to idle — nothing changes.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                HStack {
+                    Slider(value: $settings.idlePromptThresholdSeconds, in: 60...1800, step: 60)
+                        .disabled(!settings.idlePromptEnabled)
+                    Text(formatDuration(settings.idlePromptThresholdSeconds))
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .frame(width: 56, alignment: .trailing)
+                }
+            }
+            .card()
         }
     }
 }

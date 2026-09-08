@@ -140,7 +140,7 @@ struct DashboardView: View {
     }
 
     private var statRow: some View {
-        HStack(spacing: DS.spacing) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: DS.spacing)], spacing: DS.spacing) {
             StatTile(
                 title: "Tracked Time",
                 value: formatDuration(appSummary.reduce(0) { $0 + $1.totalSeconds }),
@@ -152,6 +152,12 @@ struct DashboardView: View {
                 value: formatDuration(idleSeconds),
                 systemImage: "moon.zzz.fill",
                 tint: .orange
+            )
+            StatTile(
+                title: "Paused Time",
+                value: formatDuration(pausedSeconds),
+                systemImage: "pause.circle.fill",
+                tint: .gray
             )
             StatTile(
                 title: "Top App",
@@ -168,12 +174,20 @@ struct DashboardView: View {
         }
     }
 
-    private var idleSeconds: TimeInterval {
+    /// Neither idle nor paused time counts toward "Tracked Time" (see
+    /// `ActivityStore.appTimeSummary`, which excludes `isIdle` rows entirely) —
+    /// shown as separate tiles, rather than lumped together, so it's visible at a
+    /// glance how much of the gap was the app detecting inactivity vs. you
+    /// explicitly hitting Pause.
+    private var idleSeconds: TimeInterval { nonTrackedSeconds(matching: "Idle") }
+    private var pausedSeconds: TimeInterval { nonTrackedSeconds(matching: "Paused") }
+
+    private func nonTrackedSeconds(matching appName: String) -> TimeInterval {
         let cal = Calendar.current
         let start = cal.startOfDay(for: selectedDay)
         let end = cal.date(byAdding: .day, value: 1, to: start)!
         return intervals
-            .filter { $0.isIdle }
+            .filter { $0.isIdle && $0.appName == appName }
             .reduce(0) { total, interval in
                 let clampedStart = max(interval.startTime, start)
                 let clampedEnd = min(interval.endTime ?? Date(), end)

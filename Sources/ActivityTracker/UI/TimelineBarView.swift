@@ -2,7 +2,8 @@ import SwiftUI
 
 /// A single horizontal bar spanning the selected day (00:00-24:00), broken into
 /// colored segments per app interval, with hour gridlines/labels and a marker for
-/// the current time when viewing today. Idle gaps render in a flat gray.
+/// the current time when viewing today. Idle and paused gaps render in gray
+/// (distinguishable shades — see `colorFor`).
 struct TimelineBarView: View {
     let intervals: [AppInterval]
     let day: Date
@@ -31,10 +32,10 @@ struct TimelineBarView: View {
                         let x = (clampedStart.timeIntervalSince(dayStart) / totalSeconds) * geo.size.width
 
                         Rectangle()
-                            .fill(interval.isIdle ? Color.gray.opacity(0.45) : colorForName(interval.appName))
+                            .fill(colorFor(interval))
                             .frame(width: max(1, width))
                             .position(x: x + width / 2, y: barHeight / 2)
-                            .help("\(interval.appName)\(interval.isIdle ? " (idle)" : "")")
+                            .help(interval.appName)
                     }
 
                     // Hour gridlines every 3 hours.
@@ -70,6 +71,15 @@ struct TimelineBarView: View {
                 }
             }
         }
+    }
+
+    /// Idle and manually-paused time both render as gray (neither is tracked, both
+    /// are excluded from time-per-app totals), but in distinguishable shades —
+    /// paused is a stretch you explicitly asked not to track, idle is one the app
+    /// detected on its own, and conflating them in the UI would hide that distinction.
+    private func colorFor(_ interval: AppInterval) -> Color {
+        guard interval.isIdle else { return colorForName(interval.appName) }
+        return interval.appName == "Paused" ? Color.gray.opacity(0.3) : Color.gray.opacity(0.55)
     }
 
     private func hourLabel(_ hour: Int) -> String {

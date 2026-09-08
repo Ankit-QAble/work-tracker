@@ -1,0 +1,13 @@
+# Swift Package Manager build artifacts
+.build/
+.swiftpm/
+
+# Packaged .app output (rebuilt via Scripts/build_app.sh)
+build/
+
+# macOS
+.DS_Store
+
+# Xcode (not used here, but harmless to ignore if it ever shows up)
+DerivedData/
+*.xcuserstate

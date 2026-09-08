@@ -1,0 +1,234 @@
+import SwiftUI
+import Charts
+import AppKit
+import UniformTypeIdentifiers
+
+struct DashboardView: View {
+    @State private var selectedDay: Date = Date()
+    @State private var intervals: [AppInterval] = []
+    @State private var appSummary: [AppTimeSummary] = []
+    @State private var domainSummary: [DomainTimeSummary] = []
+    @State private var activityScores: [ActivityScore] = []
+    @State private var screenshots: [Screenshot] = []
+    @ObservedObject private var settings = AppSettings.shared
+
+    private let store = ActivityStore.shared
+
+    var body: some View {
+        VStack(spacing: 0) {
+            header
+                .padding(.horizontal, DS.spacingLarge)
+                .padding(.vertical, DS.spacing)
+                .background(.thinMaterial)
+                .overlay(Divider(), alignment: .bottom)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: DS.spacingLarge) {
+                    statRow
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        SectionHeader(title: "Timeline", systemImage: "chart.bar.doc.horizontal")
+                        TimelineBarView(intervals: intervals, day: selectedDay)
+                            .frame(height: 64)
+                            .card()
+                    }
+
+                    HStack(alignment: .top, spacing: DS.spacing) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            SectionHeader(title: "Time per App", systemImage: "app.badge")
+                            AppBreakdownView(summary: appSummary)
+                                .card()
+                        }
+                        VStack(alignment: .leading, spacing: 8) {
+                            SectionHeader(title: "Time per Domain", systemImage: "globe")
+                            DomainBreakdownView(summary: domainSummary)
+                                .card()
+                        }
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        SectionHeader(title: "Activity Score", systemImage: "waveform.path.ecg")
+                        ActivityScoreChartView(scores: activityScores, day: selectedDay)
+                            .frame(height: 200)
+                            .card()
+                    }
+
+                    if settings.screenshotsEnabled || !screenshots.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            SectionHeader(title: "Screenshots", systemImage: "photo.on.rectangle")
+                            ScreenshotStripView(screenshots: screenshots)
+                                .card()
+                        }
+                    }
+                }
+                .padding(DS.spacingLarge)
+            }
+        }
+        .background(Color(nsColor: .windowBackgroundColor))
+        .frame(minWidth: 940, minHeight: 700)
+        .onAppear { reload() }
+        .onChange(of: selectedDay) { _, _ in reload() }
+    }
+
+    private var header: some View {
+        HStack(spacing: DS.spacing) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Activity Dashboard")
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                Text(selectedDay.formatted(date: .complete, time: .omitted))
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            HStack(spacing: 4) {
+                Button { shiftDay(by: -1) } label: { Image(systemName: "chevron.left") }
+                DatePicker("", selection: $selectedDay, displayedComponents: .date)
+                    .datePickerStyle(.compact)
+                    .labelsHidden()
+                Button { shiftDay(by: 1) } label: { Image(systemName: "chevron.right") }
+                    .disabled(Calendar.current.isDateInToday(selectedDay))
+            }
+            Button {
+                selectedDay = Date()
+            } label: {
+                Text("Today")
+            }
+            .buttonStyle(.bordered)
+            Button {
+                reload()
+            } label: {
+                Image(systemName: "arrow.clockwise")
+            }
+            .buttonStyle(.bordered)
+            .help("Refresh")
+
+            Menu {
+                ForEach(ExportRange.allCases) { range in
+                    Button("Export \(range.rawValue) as CSV…") {
+                        exportCSV(range: range)
+                    }
+                }
+            } label: {
+                Label("Export", systemImage: "square.and.arrow.up")
+            }
+            .menuStyle(.borderedButton)
+            .fixedSize()
+        }
+    }
+
+    /// Generates the CSV in memory, then hands the save location decision to the
+    /// user via a standard save panel — the file only gets written where they
+    /// explicitly choose to put it.
+    private func exportCSV(range: ExportRange) {
+        let csv = CSVExporter.generate(range: range, anchoredOn: selectedDay)
+
+        let panel = NSSavePanel()
+        panel.title = "Export Activity Data"
+        panel.nameFieldStringValue = CSVExporter.suggestedFilename(range: range, anchoredOn: selectedDay)
+        panel.allowedContentTypes = [.commaSeparatedText]
+        panel.canCreateDirectories = true
+
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            do {
+                try csv.write(to: url, atomically: true, encoding: .utf8)
+                Log.info("Exported CSV to \(url.path)")
+            } catch {
+                Log.error("CSV export failed: \(error)")
+            }
+        }
+    }
+
+    private var statRow: some View {
+        HStack(spacing: DS.spacing) {
+            StatTile(
+                title: "Tracked Time",
+                value: formatDuration(appSummary.reduce(0) { $0 + $1.totalSeconds }),
+                systemImage: "clock.fill",
+                tint: .blue
+            )
+            StatTile(
+                title: "Idle Time",
+                value: formatDuration(idleSeconds),
+                systemImage: "moon.zzz.fill",
+                tint: .orange
+            )
+            StatTile(
+                title: "Top App",
+                value: appSummary.first?.appName ?? "—",
+                systemImage: "star.fill",
+                tint: .purple
+            )
+            StatTile(
+                title: "Avg. Activity",
+                value: activityScores.isEmpty ? "—" : "\(averageScore)",
+                systemImage: "gauge.with.dots.needle.67percent",
+                tint: .green
+            )
+        }
+    }
+
+    private var idleSeconds: TimeInterval {
+        let cal = Calendar.current
+        let start = cal.startOfDay(for: selectedDay)
+        let end = cal.date(byAdding: .day, value: 1, to: start)!
+        return intervals
+            .filter { $0.isIdle }
+            .reduce(0) { total, interval in
+                let clampedStart = max(interval.startTime, start)
+                let clampedEnd = min(interval.endTime ?? Date(), end)
+                return total + max(0, clampedEnd.timeIntervalSince(clampedStart))
+            }
+    }
+
+    private var averageScore: Int {
+        guard !activityScores.isEmpty else { return 0 }
+        return activityScores.reduce(0) { $0 + $1.score } / activityScores.count
+    }
+
+    private func shiftDay(by delta: Int) {
+        if let newDay = Calendar.current.date(byAdding: .day, value: delta, to: selectedDay) {
+            selectedDay = min(newDay, Date())
+        }
+    }
+
+    private func reload() {
+        intervals = store.intervals(on: selectedDay)
+        appSummary = store.appTimeSummary(on: selectedDay)
+        domainSummary = store.domainTimeSummary(on: selectedDay)
+        activityScores = store.activityScores(on: selectedDay)
+        screenshots = store.screenshots(on: selectedDay)
+    }
+}
+
+// MARK: - Helpers
+
+func formatDuration(_ seconds: TimeInterval) -> String {
+    let totalMinutes = Int(seconds) / 60
+    let hours = totalMinutes / 60
+    let minutes = totalMinutes % 60
+    if hours > 0 {
+        return "\(hours)h \(minutes)m"
+    }
+    return "\(minutes)m"
+}
+
+/// Deterministic-ish color per app/domain name so the same name always renders the
+/// same color across the timeline and the breakdown charts.
+func colorForName(_ name: String) -> Color {
+    var hasher = Hashher()
+    hasher.combine(name)
+    let hue = Double(hasher.value % 360) / 360.0
+    return Color(hue: hue, saturation: 0.55, brightness: 0.85)
+}
+
+/// Tiny stable string hash (avoids relying on Swift's randomized Hasher across runs
+/// within the same process — this doesn't need cryptographic quality, just stability).
+struct Hashher {
+    var value: Int = 0
+    mutating func combine(_ string: String) {
+        for scalar in string.unicodeScalars {
+            value = (value &* 31 &+ Int(scalar.value)) & 0x7fffffff
+        }
+    }
+}

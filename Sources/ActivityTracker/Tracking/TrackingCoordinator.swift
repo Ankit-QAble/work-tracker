@@ -93,16 +93,19 @@ final class TrackingCoordinator: ObservableObject {
             status = .paused
             browserTracker.stop()
             windowTitleTracker.stop()
-            // Close whatever was open and log the pause itself as its own
-            // (isIdle) interval — otherwise the interval that was open when you
-            // hit Pause stays open for the entire paused stretch, and gets
-            // silently credited with that whole duration the moment tracking
-            // resumes (starting a new interval closes the old one by stamping
-            // it with "now").
-            currentIntervalId = store.startInterval(appName: "Paused", windowTitle: nil, url: nil, domain: nil, isIdle: true)
+            // Close whatever was open and log nothing further — pausing is a
+            // deliberate choice, not something to measure, so the paused stretch
+            // should be a clean gap in the data, not its own tracked category
+            // (unlike idle, which the app detects on its own and does log).
+            // Closing here matters regardless: leaving the prior interval open
+            // would let it get silently credited with the whole paused duration
+            // the moment tracking resumes (starting a new interval closes the
+            // old one by stamping it with "now").
+            store.closeCurrentInterval()
+            currentIntervalId = nil
             // Drop any in-flight idle bookkeeping — if you pause mid-idle, that
-            // stretch is now fully covered by the "Paused" interval, and letting
-            // stale idle-start/interval-id state survive into a later, unrelated
+            // stretch is now fully covered by the gap above, and letting stale
+            // idle-start/interval-id state survive into a later, unrelated
             // idle-resume prompt could misattribute time that already includes
             // the paused stretch.
             idleStartDate = nil

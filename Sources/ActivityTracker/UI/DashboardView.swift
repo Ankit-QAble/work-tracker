@@ -158,12 +158,6 @@ struct DashboardView: View {
                 tint: .orange
             )
             StatTile(
-                title: "Paused Time",
-                value: formatDuration(pausedSeconds),
-                systemImage: "pause.circle.fill",
-                tint: .gray
-            )
-            StatTile(
                 title: "Top App",
                 value: appSummary.first?.appName ?? "—",
                 systemImage: "star.fill",
@@ -171,7 +165,7 @@ struct DashboardView: View {
             )
             StatTile(
                 title: "Avg. Activity",
-                value: activityScores.isEmpty ? "—" : "\(averageScore)",
+                value: activeActivityScores.isEmpty ? "—" : "\(averageScore)",
                 systemImage: "gauge.with.dots.needle.67percent",
                 tint: .green
             )
@@ -201,13 +195,13 @@ struct DashboardView: View {
         }
     }
 
-    /// Neither idle nor paused time counts toward "Tracked Time" (see
+    /// Idle time doesn't count toward "Tracked Time" (see
     /// `ActivityStore.appTimeSummary`, which excludes `isIdle` rows entirely) —
-    /// shown as separate tiles, rather than lumped together, so it's visible at a
-    /// glance how much of the gap was the app detecting inactivity vs. you
-    /// explicitly hitting Pause.
+    /// shown as its own tile so it's visible at a glance how much of the day the
+    /// app detected as inactivity. Pausing, unlike idle, isn't tracked at all —
+    /// it's a deliberate choice not to be measured, so it leaves a plain gap in
+    /// the data rather than its own category (see TrackingCoordinator.togglePause).
     private var idleSeconds: TimeInterval { nonTrackedSeconds(matching: "Idle") }
-    private var pausedSeconds: TimeInterval { nonTrackedSeconds(matching: "Paused") }
 
     private func nonTrackedSeconds(matching appName: String) -> TimeInterval {
         let cal = Calendar.current
@@ -222,9 +216,22 @@ struct DashboardView: View {
             }
     }
 
+    /// Activity-score minutes tied to an idle interval always score 0 (there's no
+    /// input by definition while idle) — including them would make "Avg. Activity"
+    /// measure how much of the day you were away rather than how active you were
+    /// while actually working, which only gets worse the more time you spend away
+    /// from the keyboard regardless of how intensely you work when you're at it.
+    private var activeActivityScores: [ActivityScore] {
+        let idleIntervalIDs = Set(intervals.filter { $0.isIdle }.compactMap { $0.id })
+        return activityScores.filter { score in
+            guard let id = score.appIntervalId else { return true }
+            return !idleIntervalIDs.contains(id)
+        }
+    }
+
     private var averageScore: Int {
-        guard !activityScores.isEmpty else { return 0 }
-        return activityScores.reduce(0) { $0 + $1.score } / activityScores.count
+        guard !activeActivityScores.isEmpty else { return 0 }
+        return activeActivityScores.reduce(0) { $0 + $1.score } / activeActivityScores.count
     }
 
     private func shiftDay(by delta: Int) {

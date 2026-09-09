@@ -5,6 +5,13 @@ import UniformTypeIdentifiers
 
 struct DashboardView: View {
     @State private var selectedDay: Date = Date()
+    /// True as long as you haven't deliberately navigated away from today (via
+    /// the date picker, prev/next, or landing back on it) — while true, the
+    /// periodic/refocus auto-refresh advances `selectedDay` across a midnight
+    /// rollover instead of silently continuing to show yesterday. Set to false
+    /// the moment you pick any other day, so browsing history is never yanked
+    /// back to today out from under you.
+    @State private var isPinnedToToday = true
     @State private var intervals: [AppInterval] = []
     @State private var appSummary: [AppTimeSummary] = []
     @State private var domainSummary: [DomainTimeSummary] = []
@@ -68,9 +75,20 @@ struct DashboardView: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .frame(minWidth: 940, minHeight: 700)
         .onAppear { reload() }
-        .onChange(of: selectedDay) { _, _ in reload() }
-        .onReceive(NotificationCenter.default.publisher(for: .dashboardShouldRefresh)) { _ in
+        .onChange(of: selectedDay) { _, newValue in
+            isPinnedToToday = Calendar.current.isDateInToday(newValue)
             reload()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .dashboardShouldRefresh)) { _ in
+            if isPinnedToToday {
+                // Re-assigning to Date() re-evaluates "today" — a no-op most
+                // ticks, but the one that matters is the tick right after
+                // midnight, which otherwise would never move off yesterday on
+                // its own since this window/view is created once and reused.
+                selectedDay = Date() // triggers onChange above, which reloads
+            } else {
+                reload()
+            }
         }
     }
 

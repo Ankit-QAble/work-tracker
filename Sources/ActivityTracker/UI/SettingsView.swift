@@ -1,5 +1,7 @@
 import SwiftUI
 import AppKit
+import ApplicationServices
+import CoreGraphics
 
 private enum SettingsSection: String, CaseIterable, Identifiable {
     case general = "General"
@@ -226,22 +228,45 @@ private struct ExcludedAppsPane: View {
 }
 
 private struct PermissionsPane: View {
+    @State private var accessibilityGranted = AXIsProcessTrusted()
+    @State private var screenRecordingGranted = CGPreflightScreenCaptureAccess()
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             SectionHeader(title: "System Permissions", systemImage: "lock.shield")
             VStack(alignment: .leading, spacing: 14) {
-                Text("Each feature below needs a one-time grant in System Settings. If something isn't tracking, check here first.")
+                Text("Each feature below needs a one-time grant in System Settings — on THIS Mac specifically. Permissions don't transfer with the code: if a teammate builds and runs this on their own machine, they need to grant these separately, or that feature will silently do nothing for them.")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
 
-                PermissionRow(icon: "accessibility", name: "Accessibility", detail: "Window titles for non-browser apps")
-                PermissionRow(icon: "keyboard", name: "Input Monitoring", detail: "Per-minute activity score")
-                PermissionRow(icon: "safari", name: "Automation (Chrome)", detail: "Browser tab URL & title")
-                PermissionRow(icon: "camera", name: "Screen Recording", detail: "Optional periodic screenshots")
+                PermissionRow(
+                    icon: "accessibility",
+                    name: "Accessibility",
+                    detail: "Window titles for non-browser apps; meeting detection",
+                    status: accessibilityGranted ? .granted : .notGranted
+                )
+                PermissionRow(icon: "keyboard", name: "Input Monitoring", detail: "Per-minute activity score", status: .unknown(
+                    "No reliable way to check this without attempting it. If the Dashboard's activity score stays 0 despite typing/clicking, this is likely the cause."
+                ))
+                PermissionRow(icon: "safari", name: "Automation (Chrome)", detail: "Browser tab URL & title", status: .unknown(
+                    "No reliable way to check this without attempting it. If Chrome time shows with no domain breakdown, this is likely the cause."
+                ))
+                PermissionRow(
+                    icon: "camera",
+                    name: "Screen Recording",
+                    detail: "Optional periodic screenshots",
+                    status: screenRecordingGranted ? .granted : .notGranted
+                )
 
-                Button("Open Privacy & Security Settings") {
-                    if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security") {
-                        NSWorkspace.shared.open(url)
+                HStack {
+                    Button("Open Privacy & Security Settings") {
+                        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }
+                    Button("Recheck") {
+                        accessibilityGranted = AXIsProcessTrusted()
+                        screenRecordingGranted = CGPreflightScreenCaptureAccess()
                     }
                 }
                 .padding(.top, 4)
@@ -251,10 +276,17 @@ private struct PermissionsPane: View {
     }
 }
 
+private enum PermissionStatus {
+    case granted
+    case notGranted
+    case unknown(String)
+}
+
 private struct PermissionRow: View {
     let icon: String
     let name: String
     let detail: String
+    var status: PermissionStatus? = nil
 
     var body: some View {
         HStack(spacing: 10) {
@@ -263,10 +295,39 @@ private struct PermissionRow: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 20)
             VStack(alignment: .leading, spacing: 1) {
-                Text(name).font(.system(size: 12, weight: .medium))
+                HStack(spacing: 6) {
+                    Text(name).font(.system(size: 12, weight: .medium))
+                    if let status {
+                        badge(for: status)
+                    }
+                }
                 Text(detail).font(.system(size: 11)).foregroundStyle(.secondary)
+                if case .unknown(let hint)? = status {
+                    Text(hint).font(.system(size: 10)).foregroundStyle(.tertiary)
+                }
             }
             Spacer()
+        }
+    }
+
+    @ViewBuilder
+    private func badge(for status: PermissionStatus) -> some View {
+        switch status {
+        case .granted:
+            Label("Granted", systemImage: "checkmark.circle.fill")
+                .labelStyle(.titleAndIcon)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.green)
+        case .notGranted:
+            Label("Not Granted", systemImage: "xmark.circle.fill")
+                .labelStyle(.titleAndIcon)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.red)
+        case .unknown:
+            Label("Unknown", systemImage: "questionmark.circle.fill")
+                .labelStyle(.titleAndIcon)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.secondary)
         }
     }
 }

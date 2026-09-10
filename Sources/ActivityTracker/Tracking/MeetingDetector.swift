@@ -38,6 +38,7 @@ final class MeetingDetector {
 
     private var timer: DispatchSourceTimer?
     private var inMeeting: Set<String> = [] // display names currently considered "in a meeting"
+    private var hasLoggedPermissionDenial = false
 
     private let pollInterval: TimeInterval = 10.0
 
@@ -57,7 +58,13 @@ final class MeetingDetector {
     }
 
     private func poll() {
-        guard AXIsProcessTrusted() else { return } // same permission WindowTitleTracker needs; degrade silently
+        guard AXIsProcessTrusted() else {
+            if !hasLoggedPermissionDenial {
+                Log.error("Accessibility permission not granted — meeting detection disabled. Grant it in System Settings > Privacy & Security > Accessibility.")
+                hasLoggedPermissionDenial = true
+            }
+            return
+        }
 
         for app in supportedApps {
             let running = NSWorkspace.shared.runningApplications.first {

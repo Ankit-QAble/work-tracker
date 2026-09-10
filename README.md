@@ -119,7 +119,18 @@ The app needs, and gracefully degrades without, four permissions:
 
 Grant these in **System Settings → Privacy & Security**. If a feature isn't
 tracking, check there first (Settings → Permissions tab in the app links
-straight to it).
+straight to it, and now shows a live Granted/Not Granted status for
+Accessibility and Screen Recording — the two macOS provides a way to actually
+check).
+
+**Permissions are per-Mac, not part of the code.** If a teammate clones this
+repo and builds it on their own machine, none of your grants apply to them —
+they need to grant Accessibility/Input Monitoring/Automation/Screen Recording
+themselves, the same way you did. The most common "it works for me but not for
+my teammate" report is simply that they haven't granted Accessibility yet:
+without it, window-title tracking *and* meeting detection both silently do
+nothing — no crash, no visible error, the Dashboard just never gets that data.
+Check Settings → Permissions on their machine first.
 
 ## How meeting detection works
 

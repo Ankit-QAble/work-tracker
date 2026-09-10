@@ -37,7 +37,6 @@ struct DashboardView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         SectionHeader(title: "Timeline", systemImage: "chart.bar.doc.horizontal")
                         TimelineBarView(intervals: intervals, meetingSessions: meetingSessions, day: selectedDay)
-                            .frame(height: meetingSessions.isEmpty ? 64 : 78)
                             .card()
                     }
 

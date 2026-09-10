@@ -86,7 +86,40 @@ private struct GeneralSettingsPane: View {
                 }
             }
             .card()
+
+            SectionHeader(title: "Dashboard Timeline", systemImage: "chart.bar.doc.horizontal")
+            VStack(alignment: .leading, spacing: 10) {
+                Text("The hour range the timeline bar visually spans. Doesn't affect Tracked Time or any other totals — just how the bar itself is drawn, so the hours you actually work aren't squeezed into a sliver next to a mostly-empty overnight stretch.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                HStack {
+                    Text("From").font(.system(size: 12)).frame(width: 40, alignment: .leading)
+                    Slider(value: $settings.timelineStartHour, in: 0...22, step: 1)
+                    Text(hourLabel(settings.timelineStartHour))
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .frame(width: 56, alignment: .trailing)
+                }
+                HStack {
+                    Text("To").font(.system(size: 12)).frame(width: 40, alignment: .leading)
+                    Slider(
+                        value: $settings.timelineEndHour,
+                        in: (settings.timelineStartHour + 1)...23,
+                        step: 1
+                    )
+                    Text(hourLabel(settings.timelineEndHour))
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .frame(width: 56, alignment: .trailing)
+                }
+            }
+            .card()
         }
+    }
+
+    private func hourLabel(_ hour: Double) -> String {
+        let h = Int(hour) % 24
+        if h == 0 { return "12am" }
+        if h == 12 { return "12pm" }
+        return h < 12 ? "\(h)am" : "\(h - 12)pm"
     }
 }
 

@@ -28,7 +28,8 @@ struct DashboardView: View {
                 .padding(.horizontal, DS.spacingLarge)
                 .padding(.vertical, DS.spacing)
                 .background(.thinMaterial)
-                .overlay(Divider(), alignment: .bottom)
+                .zIndex(1)
+                .shadow(color: .black.opacity(0.06), radius: 6, y: 2)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: DS.spacingLarge) {
@@ -96,34 +97,43 @@ struct DashboardView: View {
 
     private var header: some View {
         HStack(spacing: DS.spacing) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Activity Dashboard")
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                Text(selectedDay.formatted(date: .complete, time: .omitted))
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+            HStack(spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.accentColor, Color.accentColor.opacity(0.7)],
+                                startPoint: .topLeading, endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 34, height: 34)
+                    Image(systemName: "chart.xyaxis.line")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Activity Dashboard")
+                        .font(.system(size: 19, weight: .bold, design: .rounded))
+                    Text(selectedDay.formatted(date: .complete, time: .omitted))
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                }
             }
             Spacer()
-            HStack(spacing: 4) {
-                Button { shiftDay(by: -1) } label: { Image(systemName: "chevron.left") }
-                DatePicker("", selection: $selectedDay, displayedComponents: .date)
-                    .datePickerStyle(.compact)
-                    .labelsHidden()
-                Button { shiftDay(by: 1) } label: { Image(systemName: "chevron.right") }
-                    .disabled(Calendar.current.isDateInToday(selectedDay))
-            }
-            Button {
+
+            DateNavigator(selectedDay: $selectedDay)
+
+            Button("Today") {
                 selectedDay = Date()
-            } label: {
-                Text("Today")
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(PillButtonStyle())
+
             Button {
                 reload()
             } label: {
                 Image(systemName: "arrow.clockwise")
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(SubtleIconButtonStyle())
             .help("Refresh")
 
             Menu {
@@ -135,7 +145,8 @@ struct DashboardView: View {
             } label: {
                 Label("Export", systemImage: "square.and.arrow.up")
             }
-            .menuStyle(.borderedButton)
+            .menuStyle(.button)
+            .buttonStyle(ProminentPillButtonStyle())
             .fixedSize()
         }
     }
@@ -252,12 +263,6 @@ struct DashboardView: View {
     private var averageScore: Int {
         guard !activeActivityScores.isEmpty else { return 0 }
         return activeActivityScores.reduce(0) { $0 + $1.score } / activeActivityScores.count
-    }
-
-    private func shiftDay(by delta: Int) {
-        if let newDay = Calendar.current.date(byAdding: .day, value: delta, to: selectedDay) {
-            selectedDay = min(newDay, Date())
-        }
     }
 
     private func reload() {

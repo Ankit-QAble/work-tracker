@@ -89,6 +89,9 @@ struct DashboardView: View {
                 reload()
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .dashboardShouldResetToToday)) { _ in
+            selectedDay = Date() // triggers onChange above, which sets isPinnedToToday and reloads
+        }
     }
 
     private var header: some View {

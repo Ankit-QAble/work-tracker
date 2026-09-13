@@ -10,6 +10,14 @@ extension Notification.Name {
     /// hide/show, so scheduling lives here in MenuBarController instead, which
     /// already knows the window's visibility.
     static let dashboardShouldRefresh = Notification.Name("dashboardShouldRefresh")
+
+    /// Posted when the Dashboard is opened from a closed/hidden state — jumps
+    /// back to today regardless of whatever day was last being viewed, so
+    /// reopening it always starts from "today" rather than wherever you left
+    /// off browsing history. Deliberately NOT posted when the window was
+    /// already visible and you're just refocusing it (e.g. Cmd+D again while
+    /// mid-review of a past day) — that would be disruptive rather than helpful.
+    static let dashboardShouldResetToToday = Notification.Name("dashboardShouldResetToToday")
 }
 
 /// Owns the NSStatusItem, its dropdown menu, and the (lazily created) Dashboard /
@@ -135,6 +143,11 @@ final class MenuBarController: NSObject, NSMenuDelegate, NSWindowDelegate {
     }
 
     @objc private func openDashboard() {
+        // A freshly-created window isn't visible yet either, so this correctly
+        // covers both "never opened before" and "opened, then closed" — both
+        // should reset to today; only "already open, just refocusing" shouldn't.
+        let wasVisible = dashboardWindow?.isVisible ?? false
+
         if dashboardWindow == nil {
             let window = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 980, height: 720),
@@ -149,6 +162,9 @@ final class MenuBarController: NSObject, NSMenuDelegate, NSWindowDelegate {
             window.contentView = NSHostingView(rootView: DashboardView())
             window.center()
             dashboardWindow = window
+        }
+        if !wasVisible {
+            NotificationCenter.default.post(name: .dashboardShouldResetToToday, object: nil)
         }
         NSApp.activate(ignoringOtherApps: true)
         dashboardWindow?.makeKeyAndOrderFront(nil)

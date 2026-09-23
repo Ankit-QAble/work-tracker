@@ -5,6 +5,10 @@
 # Packaged .app output (rebuilt via Scripts/build_app.sh)
 build/
 
+# Packaged .dmg output (rebuilt via Scripts/build_dmg.sh; published as GitHub
+# Release assets, not committed to the repo)
+dist/
+
 # macOS
 .DS_Store
 

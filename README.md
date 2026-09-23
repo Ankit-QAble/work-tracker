@@ -35,6 +35,24 @@ no networking. All data lives on disk under
 - Built with Swift Package Manager — **no Xcode.app required** (Command Line
   Tools are enough), since the app is assembled into a `.app` bundle by hand.
 
+## Download
+
+Prebuilt `.dmg` releases are published at
+[github.com/Ankit-QAble/work-tracker/releases](https://github.com/Ankit-QAble/work-tracker/releases) —
+download the latest one, open it, and drag ActivityTracker into
+Applications.
+
+**This build is not notarized** (no paid Apple Developer account involved).
+macOS Gatekeeper will refuse to open it normally the first time — right-click
+(or Control-click) the app in Applications and choose **Open**, then confirm
+in the dialog that appears. You only need to do this once; after that it
+opens normally. If you don't see an "Open" option there, it's under
+**System Settings → Privacy & Security → "ActivityTracker was blocked" → Open Anyway**.
+
+Prefer to build from source instead? See below — it's not required, but
+useful if you want the very latest unreleased changes or want to read/modify
+the code.
+
 ## Running this on your own Mac
 
 ### Preconditions
@@ -105,6 +123,22 @@ A couple of things worth knowing up front, since they're easy to lose time to:
 ```
 Quit any running copy first (menu bar → Quit) so `open` launches the fresh
 build rather than reusing the old process.
+
+### Cutting a release
+
+```bash
+./Scripts/build_dmg.sh
+```
+
+Builds a release `.app` and packages it into `dist/ActivityTracker-<version>.dmg`
+(version read from `Resources/Info.plist`'s `CFBundleShortVersionString`).
+Bump that version first if this is a new release, then publish it:
+
+```bash
+git tag v<version> && git push origin v<version>
+gh release create v<version> dist/ActivityTracker-<version>.dmg \
+  --title "ActivityTracker v<version>" --notes "..."
+```
 
 ## Permissions
 

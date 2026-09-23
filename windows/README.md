@@ -27,10 +27,19 @@ real Windows yet**. It needs your help to find out what's broken.
 
 ## Running it
 
-Prebuilt: grab the latest `.exe` from
-[Releases](https://github.com/Ankit-QAble/work-tracker/releases) — it's
-self-contained (no .NET install required), just run it. A tray icon should
-appear near the clock.
+Prebuilt: grab the latest `.zip` from
+[Releases](https://github.com/Ankit-QAble/work-tracker/releases), extract it
+fully (right-click → Extract All — don't run the exe from inside the zip
+preview), then run `ActivityTracker.App.exe` from the extracted folder. It's
+self-contained (no .NET install required). A tray icon should appear near the
+clock.
+
+Not code-signed, so expect a Windows SmartScreen "unrecognized publisher"
+warning the first time — click **More info → Run anyway**. Distributed as a
+plain multi-file folder rather than a single packed `.exe`: the
+`PublishSingleFile` packing format is commonly flagged as a false positive by
+Windows Defender's heuristics (the self-extracting stub resembles how malware
+packers work), which caused exactly that failure in an earlier beta.
 
 From source: needs the [.NET SDK](https://dotnet.microsoft.com/download) (8+).
 ```powershell
@@ -95,9 +104,14 @@ window enumeration) is genuinely unverified, since P/Invoke calls to
 ## Building a release
 
 ```bash
-dotnet publish src/ActivityTracker.App -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o dist/win-x64
+dotnet publish src/ActivityTracker.App -c Release -r win-x64 --self-contained -p:PublishSingleFile=false -o dist/win-x64
+cd dist/win-x64 && zip -r -q ../ActivityTracker-Windows-<version>-win-x64.zip . && cd -
 ```
 
-Produces a single `ActivityTracker.App.exe` (~85MB, self-contained — no .NET
-install required on the target machine). This can be cross-compiled from
-macOS or Linux; it does not need to run on Windows to be *built* for Windows.
+Produces a self-contained folder (~200MB, no .NET install required on the
+target machine) — zip it for distribution. Deliberately **not**
+`PublishSingleFile=true`: that packed single-`.exe` format is commonly flagged
+as a false positive by Windows Defender's heuristics (the self-extracting stub
+resembles how malware packers work), and caused a real install failure in an
+early beta. This can be cross-compiled from macOS or Linux; it does not need
+to run on Windows to be *built* for Windows.

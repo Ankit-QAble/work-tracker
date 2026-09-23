@@ -248,6 +248,13 @@ rm key.pem cert.p12  # cert.pem can stay; the private key/p12 no longer need to 
 If this identity is somehow missing or unavailable at build time, the script
 falls back to ad-hoc signing (with the rebuild caveat described above).
 
+## Windows
+
+A separate native Windows port lives in [`windows/`](windows/README.md) — a
+first beta, built without access to a real Windows machine to test on. See
+that README for what's implemented, what's still unverified, and what
+feedback would help most.
+
 ## Non-goals
 
 No cloud sync, no accounts, no multi-user support, no keystroke content

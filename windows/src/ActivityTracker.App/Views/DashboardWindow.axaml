@@ -1,0 +1,115 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:ActivityTracker.App.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="640"
+        x:Class="ActivityTracker.App.Views.DashboardWindow"
+        x:DataType="vm:DashboardViewModel"
+        Width="900" Height="640" MinWidth="700" MinHeight="500"
+        Title="Activity Dashboard">
+
+    <Design.DataContext>
+        <vm:DashboardViewModel />
+    </Design.DataContext>
+
+    <DockPanel>
+        <!-- Header -->
+        <Border DockPanel.Dock="Top" Padding="20,14" BorderThickness="0,0,0,1" BorderBrush="#22000000">
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Activity Dashboard" FontSize="19" FontWeight="Bold" />
+                    <TextBlock Text="{Binding DateLabel}" FontSize="12" Opacity="0.6" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <Button Content="&#8249;" Command="{Binding PreviousDayCommand}" Width="28" />
+                    <Button Content="&#8250;" Command="{Binding NextDayCommand}" Width="28" />
+                    <Button Content="Today" Command="{Binding TodayCommand}" />
+                    <Button Content="&#8635;" Command="{Binding RefreshCommand}" ToolTip.Tip="Refresh" Width="28" />
+                    <Button Content="Export Day">
+                        <Button.Flyout>
+                            <MenuFlyout>
+                                <MenuItem Header="Export Day as CSV" Command="{Binding ExportDayCommand}" />
+                                <MenuItem Header="Export Week as CSV" Command="{Binding ExportWeekCommand}" />
+                                <MenuItem Header="Export Month as CSV" Command="{Binding ExportMonthCommand}" />
+                            </MenuFlyout>
+                        </Button.Flyout>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <ScrollViewer>
+            <StackPanel Margin="20" Spacing="20">
+                <!-- Stat tiles -->
+                <UniformGrid Columns="5" Rows="1">
+                    <Border Classes="stat" Margin="0,0,8,0">
+                        <StackPanel>
+                            <TextBlock Text="TRACKED TIME" FontSize="10" Opacity="0.55" FontWeight="Bold" />
+                            <TextBlock Text="{Binding TrackedTimeText}" FontSize="22" FontWeight="Bold" Margin="0,6,0,0" />
+                        </StackPanel>
+                    </Border>
+                    <Border Classes="stat" Margin="0,0,8,0">
+                        <StackPanel>
+                            <TextBlock Text="IDLE TIME" FontSize="10" Opacity="0.55" FontWeight="Bold" />
+                            <TextBlock Text="{Binding IdleTimeText}" FontSize="22" FontWeight="Bold" Margin="0,6,0,0" />
+                        </StackPanel>
+                    </Border>
+                    <Border Classes="stat" Margin="0,0,8,0">
+                        <StackPanel>
+                            <TextBlock Text="MEETING TIME" FontSize="10" Opacity="0.55" FontWeight="Bold" />
+                            <TextBlock Text="{Binding MeetingTimeText}" FontSize="22" FontWeight="Bold" Margin="0,6,0,0" />
+                        </StackPanel>
+                    </Border>
+                    <Border Classes="stat" Margin="0,0,8,0">
+                        <StackPanel>
+                            <TextBlock Text="TOP APP" FontSize="10" Opacity="0.55" FontWeight="Bold" />
+                            <TextBlock Text="{Binding TopAppText}" FontSize="18" FontWeight="Bold" Margin="0,6,0,0" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </Border>
+                    <Border Classes="stat">
+                        <StackPanel>
+                            <TextBlock Text="AVG. ACTIVITY" FontSize="10" Opacity="0.55" FontWeight="Bold" />
+                            <TextBlock Text="{Binding AvgActivityText}" FontSize="22" FontWeight="Bold" Margin="0,6,0,0" />
+                        </StackPanel>
+                    </Border>
+                </UniformGrid>
+
+                <!-- App breakdown -->
+                <StackPanel>
+                    <TextBlock Text="TIME PER APP" FontSize="11" FontWeight="Bold" Opacity="0.55" Margin="0,0,0,8" />
+                    <Border Classes="card">
+                        <ItemsControl ItemsSource="{Binding AppRows}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:AppTimeRow">
+                                    <Grid ColumnDefinitions="140,*,60" Margin="0,5">
+                                        <TextBlock Grid.Column="0" Text="{Binding AppName}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                        <ProgressBar Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding Fraction}"
+                                                     Height="8" VerticalAlignment="Center" Foreground="#4C6EF5" />
+                                        <TextBlock Grid.Column="2" Text="{Binding DurationText}" HorizontalAlignment="Right" Opacity="0.7" FontSize="11" VerticalAlignment="Center" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Border>
+                </StackPanel>
+
+                <TextBlock Text="Chrome time-per-domain and a visual timeline aren't implemented yet in this Windows build (see the README for what's still to come)."
+                           FontSize="11" Opacity="0.5" TextWrapping="Wrap" />
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+
+    <Window.Styles>
+        <Style Selector="Border.stat">
+            <Setter Property="Background" Value="#0A000000" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="14" />
+        </Style>
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="#0A000000" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="16" />
+        </Style>
+    </Window.Styles>
+</Window>

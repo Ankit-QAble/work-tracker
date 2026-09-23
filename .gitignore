@@ -15,3 +15,8 @@ dist/
 # Xcode (not used here, but harmless to ignore if it ever shows up)
 DerivedData/
 *.xcuserstate
+
+# .NET build artifacts (windows/ — the Windows port)
+bin/
+obj/
+*.user
